@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Manager</title>
+  <link rel="icon" type="image/png" href="icons/icon32.png">
+  <link rel="stylesheet" href="manager.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div class="side-top"></div>
+      <nav id="sideNav" class="side-nav"></nav>
+      <div class="side-footer">
+        <span id="helperDot" class="helper-dot busy"></span>
+        <span id="helperLabel" class="helper-label"></span>
+        <button type="button" id="settings" class="icon-button" data-i18n-title="settings.button" data-i18n-label="settings.button"><i data-icon="folder"></i></button>
+        <button type="button" id="rescan" class="icon-button" data-i18n-title="rescan" data-i18n-label="rescan"><i data-icon="refresh"></i></button>
+        <button type="button" id="shortcuts" class="icon-button" data-i18n-title="shortcuts" data-i18n-label="shortcuts"><i data-icon="keyboard"></i></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="toolbar">
+        <div class="toolbar-view">
+          <div class="titles">
+            <h1 id="viewTitle"></h1>
+            <div id="viewSub" class="view-sub"></div>
+          </div>
+        </div>
+        <div class="toolbar-tools">
+          <select id="format" class="select" hidden data-i18n-label="info.format">
+            <option value="" data-i18n="format.all"></option>
+            <option value="HTML" data-i18n="format.html"></option>
+            <option value="MD" data-i18n="format.md"></option>
+          </select>
+          <div class="date-wrap">
+            <button type="button" id="dateButton" class="button tool" aria-expanded="false" aria-controls="calendar"><i data-icon="calendar"></i><span id="dateLabel"></span></button>
+            <div id="calendar" class="popover calendar" hidden></div>
+          </div>
+          <label class="search"><i data-icon="search"></i><input id="search" type="search" autocomplete="off" spellcheck="false" data-i18n-placeholder="search" data-i18n-label="search"></label>
+          <select id="sort" class="select" data-i18n-label="sort.newest">
+            <option value="newest" data-i18n="sort.newest"></option>
+            <option value="oldest" data-i18n="sort.oldest"></option>
+            <option value="title" data-i18n="sort.title"></option>
+          </select>
+          <div id="layout" class="segmented" role="group">
+            <button type="button" data-layout="grid" data-i18n-title="view.grid" data-i18n-label="view.grid"><i data-icon="grid"></i></button>
+            <button type="button" data-layout="list" data-i18n-title="view.list" data-i18n-label="view.list"><i data-icon="list"></i></button>
+          </div>
+          <label id="zoom" class="zoom" data-i18n-title="cardSize"><i data-icon="minus"></i><input id="size" type="range" min="160" max="360" step="20" data-i18n-label="cardSize"><i data-icon="plus"></i></label>
+          <button type="button" id="infoToggle" class="icon-button tool" aria-pressed="false" data-i18n-title="info.toggle" data-i18n-label="info.toggle"><i data-icon="info"></i></button>
+        </div>
+        <div class="selection-bar">
+          <button type="button" id="selDone" class="button small" data-i18n="selection.done"></button>
+          <span id="selCount" class="sel-count"></span>
+          <button type="button" id="selAll" class="button small plain" data-i18n="selection.all"></button>
+          <span class="spacer"></span>
+          <button type="button" id="selCopy" class="button small"><i data-icon="copy"></i><span data-i18n="selection.copyList"></span></button>
+          <button type="button" id="selTrash" class="button small danger-text"><i data-icon="trash"></i><span data-i18n="trash"></span></button>
+          <button type="button" id="selInfo" class="icon-button tool" aria-pressed="false" data-i18n-title="info.toggle" data-i18n-label="info.toggle"><i data-icon="info"></i></button>
+        </div>
+      </header>
+      <div class="body">
+        <div id="scroller" class="scroller">
+          <div id="content" class="content"></div>
+          <div id="status" class="status" hidden></div>
+          <div id="empty" class="empty" hidden></div>
+        </div>
+        <aside id="info" class="info" hidden aria-live="polite"></aside>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="importDialog" class="sheet import-sheet" aria-labelledby="importTitle">
+    <header class="imp-head">
+      <div>
+        <h3 id="importTitle" data-i18n="import.title"></h3>
+        <p data-i18n="import.intro"></p>
+      </div>
+      <button type="button" class="icon-button" data-imp="close" data-i18n-label="close"><i data-icon="close"></i></button>
+    </header>
+    <div class="imp-status" role="status"></div>
+    <div class="imp-list" tabindex="-1" autofocus></div>
+    <footer class="sheet-actions">
+      <button type="button" class="button plain" data-imp="all"></button>
+      <span class="spacer"></span>
+      <button type="button" class="button" data-imp="close" data-i18n="cancel"></button>
+      <button type="button" class="button primary" data-imp="confirm" data-i18n="import.confirm" disabled></button>
+    </footer>
+  </dialog>
+
+  <dialog id="confirmDialog" class="sheet confirm-sheet">
+    <form method="dialog">
+      <div class="confirm-icon"><i data-icon="trash"></i></div>
+      <h3></h3>
+      <p></p>
+      <ul></ul>
+      <div class="sheet-actions">
+        <button type="submit" value="cancel" class="button" data-i18n="cancel"></button>
+        <button type="submit" value="ok" class="button primary" data-confirm></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="vocabDialog" class="sheet vocab-sheet">
+    <form method="dialog">
+      <h3 data-i18n="vocab.title"></h3>
+      <p class="sheet-intro" data-i18n="vocab.intro"></p>
+      <div class="vocab-scroll">
+        <table>
+          <thead><tr><th data-i18n="vocab.group"></th><th data-i18n="vocab.tag"></th><th data-i18n="vocab.used"></th><th data-i18n="vocab.scope"></th></tr></thead>
+          <tbody id="vocabRows"></tbody>
+        </table>
+      </div>
+      <div class="sheet-actions"><button type="submit" class="button primary" data-i18n="ok"></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" class="sheet settings-sheet">
+    <form method="dialog">
+      <h3 data-i18n="settings.title"></h3>
+      <p class="sheet-intro" data-i18n="settings.intro"></p>
+      <label class="field">
+        <span data-i18n="settings.library"></span>
+        <input id="setLibrary" type="text" spellcheck="false" autocomplete="off">
+        <small data-i18n="settings.libraryHint"></small>
+      </label>
+      <label class="field">
+        <span data-i18n="settings.inbox"></span>
+        <input id="setInbox" type="text" spellcheck="false" autocomplete="off">
+        <small data-i18n="settings.inboxHint"></small>
+      </label>
+      <p id="settingsError" class="field-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button type="submit" value="cancel" class="button" data-i18n="cancel" formnovalidate></button>
+        <button type="button" id="settingsSave" class="button primary" data-i18n="settings.save"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="keysDialog" class="sheet keys-sheet">
+    <form method="dialog">
+      <h3 data-i18n="keys.title"></h3>
+      <div class="keys-list" data-keys="keys.list"></div>
+      <div class="sheet-actions"><button type="submit" class="button primary" data-i18n="ok"></button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

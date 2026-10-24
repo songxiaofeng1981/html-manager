@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_appName__",
+  "version": "1.5.0",
+  "description": "__MSG_appDescription__",
+  "default_locale": "en",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "__MSG_actionTitle__",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' file: data:; object-src 'self'"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9m91iQAhwcf0LhdrSWbYgBUuiWOeRYr4ruYkxI0BQ6/KTm1r0u5hVPWF+fAqmspMR6sPq9gWooBhYEie5NZJNkC5o67MKOCoYqkJoPgQLjz/yCNb2uCJa13YQFz5hKDnjrcmS/BylrHgPxs/t71BUFNpEs0Hfmh1gkyloDZCsjilS32SQVDFGKFxN9EpwpSdAkO8DOzOYX+lTeMjO3pcyHwB6G8JAANaxxDTMWQPQ10tIXUWsTk+qB+EZNhgYzQHShn5ozqUIzquo/4g7mXVBFyQTJmsrvD9lrRjVH0jB46jBCAxzKG1n3bpLcxhDgfiBEpwnEqO/yFxvGnZE9X2xwIDAQAB",
+  "host_permissions": [
+    "file:///*"
+  ]
+}

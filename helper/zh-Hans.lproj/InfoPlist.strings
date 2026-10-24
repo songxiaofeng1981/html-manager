@@ -1,0 +1,5 @@
+/* Chinese names and permission texts shown by macOS. / macOS 显示的中文名称和权限说明。 */
+CFBundleDisplayName = "Manager 本机助手";
+CFBundleName = "Manager 本机助手";
+NSDownloadsFolderUsageDescription = "Manager 页面打开时，本机助手读取资料库（默认是“下载”文件夹中的 Manager.html 和 Manager_Files）并查找新的 HTML；收录时写入搜索信息和缩略图，把文件移入资料库并更新 Manager.html。只有经你确认后才会把文件移到废纸篓。";
+NSRemovableVolumesUsageDescription = "如果你把 Manager 资料库或收件文件夹放在移动硬盘上，本机助手需要读取其中的 Manager.html、Manager_Files 和缩略图，并在收录或经你确认删除时更新它们。";
