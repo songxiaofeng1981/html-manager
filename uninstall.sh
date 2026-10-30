@@ -1,7 +1,7 @@
 #!/bin/bash
 # Remove the helper, its settings and the installed extension files.
-# Your library (Manager.html, Manager_Files, thumbnails) and your HTML files are not touched.
-# 删除本机助手、它的设置和已安装的插件文件。不会动你的资料库（Manager.html、Manager_Files、缩略图）和 HTML 文件。
+# Your library (Manager_Files, the .manager index, thumbnails) and your HTML files are not touched.
+# 删除本机助手、它的设置和已安装的插件文件。不会动你的资料库（Manager_Files、.manager 索引、缩略图）和 HTML 文件。
 HOST_NAME="com.songxiaofeng.managerhtml"
 AS="$HOME/Library/Application Support"
 for browser in "Google/Chrome" "Google/Chrome Beta" "Google/Chrome Dev" "Google/Chrome Canary" "Chromium" \

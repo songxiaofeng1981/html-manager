@@ -4,15 +4,16 @@
 Usage / 用法:
     python3 dev/make_samples.py <folder>             # library and inbox in one folder / 资料库和收件文件夹是同一个
     python3 dev/make_samples.py <library> <inbox>    # separate folders / 分开的两个文件夹
+    python3 dev/make_samples.py --legacy <folder>    # index in an old Manager.html, as before 1.6 / 旧版的 Manager.html 索引
 The folders are emptied first. / 会先清空这些文件夹。
 
-Creates Manager.html (the index), Manager_Files/ with indexed HTML files (doc-meta, version
+Creates .manager/index.json (the index; with --legacy an old Manager.html instead), Manager_Files/ with indexed HTML files (doc-meta, version
 families, one without doc-meta, one without a date), JPEG thumbnails in .thumbs/ (one left out
 on purpose), and loose HTML files in the root for "Import New HTML", plus things the helper must
 skip (a hidden file, a symbolic link). With a separate inbox, the new files go there together with a
 picture and a zip they link to, and the index keeps stale absolute paths (as after moving a library).
 Only uses the Python standard library and macOS `sips`.
-生成 Manager.html（索引）、Manager_Files/ 中已收录的 HTML（含 doc-meta、版本组、缺 doc-meta、缺日期的条目）、
+生成 .manager/index.json（索引；加 --legacy 时改为旧版 Manager.html）、Manager_Files/ 中已收录的 HTML（含 doc-meta、版本组、缺 doc-meta、缺日期的条目）、
 .thumbs/ 中的 JPEG 缩略图（故意少一张），以及根目录中待收录的 HTML；还有助手必须跳过的隐藏文件和符号链接。
 只用 Python 标准库和 macOS 自带的 sips。
 """
@@ -82,7 +83,7 @@ def set_mtime(path, when):
     os.utime(path, (ts, ts))
 
 
-def main(root, inbox=None):
+def main(root, inbox=None, legacy=False):
     for folder in [root, inbox]:
         if folder and os.path.exists(folder):
             shutil.rmtree(folder)
@@ -122,9 +123,15 @@ def main(root, inbox=None):
     records.append({"title": "Markdown 笔记", "category": "工作与管理", "tags": ["知识管理"], "keywords": [], "description": "",
                     "fileType": "MD", "filename": "note.md", "path": os.path.join(root, "note.md"), "href": "note.md",
                     "created": TODAY.strftime("%Y-%m-%d")})
-    with open(os.path.join(root, "Manager.html"), "w", encoding="utf-8") as f:
-        f.write("<!doctype html><html><head><meta charset='utf-8'><title>Manager</title></head><body>\n<script>\n"
-                f"const files = {json.dumps(records, ensure_ascii=False)};\nconst HTML_CONTROLLED=[];\n</script></body></html>\n")
+    if legacy:
+        # The index before 1.6: a page with `const files = [...]`. / 1.6 之前的索引：含 `const files = [...]` 的网页。
+        with open(os.path.join(root, "Manager.html"), "w", encoding="utf-8") as f:
+            f.write("<!doctype html><html><head><meta charset='utf-8'><title>Manager</title></head><body>\n<script>\n"
+                    f"const files = {json.dumps(records, ensure_ascii=False)};\nconst HTML_CONTROLLED=[];\n</script></body></html>\n")
+    else:
+        os.makedirs(os.path.join(root, ".manager"))
+        with open(os.path.join(root, ".manager", "index.json"), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "files": records}, f, ensure_ascii=False, indent=2)
 
     # Not yet imported / 待收录
     loose = [
@@ -152,6 +159,9 @@ def main(root, inbox=None):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (2, 3):
+    argv = sys.argv[1:]
+    old = "--legacy" in argv
+    argv = [a for a in argv if a != "--legacy"]
+    if len(argv) not in (1, 2):
         sys.exit(__doc__)
-    main(*sys.argv[1:])
+    main(*argv, legacy=old)

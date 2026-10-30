@@ -1,7 +1,7 @@
 // "Import New HTML": find HTML files not in the index yet, check category and 2–4 tags, then import.
-// The helper writes doc-meta, renders a thumbnail, moves root files into Manager_Files and updates Manager.html.
+// The helper writes doc-meta, renders a thumbnail, moves root files into Manager_Files and updates the index.
 // “收录新 HTML”：找出未收录的 HTML，核对分类和 2～4 个受控标签后收录。
-// 本机助手负责写入 doc-meta、生成缩略图、把根目录文件移入 Manager_Files，并更新 Manager.html。
+// 本机助手负责写入 doc-meta、生成缩略图、把根目录文件移入 Manager_Files，并更新索引。
 
 import { host } from './host.js';
 import { groupVersions, versionTimeLabel } from './library.js';

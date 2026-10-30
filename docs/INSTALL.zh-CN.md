@@ -12,16 +12,16 @@ Microsoft Edge、Brave、Arc、Vivaldi 也可以用，步骤相同。
 ## 第 1 步：下载
 
 1. 打开[最新版本页面](https://github.com/songxiaofeng1981/html-manager/releases/latest)。
-2. 在 **Assets** 下面点 **`html-manager-v1.5.0.zip`**（版本号可能更高）。
+2. 在 **Assets** 下面点 **`html-manager-v1.6.0.zip`**（版本号可能更高）。
    不要点“Source code”，那是源代码，需要开发工具才能用。
-3. 打开“下载”文件夹，双击这个 zip 文件，会出现一个叫 `html-manager-v1.5.0` 的文件夹。
+3. 打开“下载”文件夹，双击这个 zip 文件，会出现一个叫 `html-manager-v1.6.0` 的文件夹。
 
 ## 第 2 步：运行安装程序
 
 1. 打开“终端”：按 `⌘ 空格`，输入 `终端`（或 `Terminal`），按回车。
 2. 在终端窗口里输入 `bash`，后面加**一个空格**。先不要按回车。
-3. 把 `html-manager-v1.5.0` 文件夹里的 **`install.sh`** 拖进终端窗口。
-   这一行会变成类似 `bash /Users/你的用户名/Downloads/html-manager-v1.5.0/install.sh` 的样子。
+3. 把 `html-manager-v1.6.0` 文件夹里的 **`install.sh`** 拖进终端窗口。
+   这一行会变成类似 `bash /Users/你的用户名/Downloads/html-manager-v1.6.0/install.sh` 的样子。
 4. 按回车。
 
 几秒钟后会显示 **“完成！”**，并自动打开 Chrome 的扩展程序页面。
@@ -46,7 +46,7 @@ Microsoft Edge、Brave、Arc、Vivaldi 也可以用，步骤相同。
 ## 第 4 步：新建资料库
 
 1. 点工具栏里的 **Manager** 图标。
-2. 第一次打开时会显示 **“新建资料库”**。点 **“新建资料库”**，Manager 会在“下载”文件夹里创建 `Manager.html` 和 `Manager_Files` 文件夹，不改动其他文件。
+2. 第一次打开时会显示 **“新建资料库”**。点 **“新建资料库”**，Manager 会在“下载”文件夹里创建 `Manager_Files` 文件夹和存放索引的隐藏文件夹 `.manager`，不改动其他文件。
    - 想把资料库放在别处（比如移动硬盘）？先点 **“设置资料库位置…”**，填好文件夹路径再新建。
 3. 如果 macOS 问 *“Manager 本机助手”想要访问“下载”文件夹中的文件*，点 **“允许”**。
 
@@ -56,13 +56,14 @@ Microsoft Edge、Brave、Arc、Vivaldi 也可以用，步骤相同。
 2. 勾选要收录的文件。每篇都核对一下 **分类** 和 **2～4 个标签**（点“+ 标签”从词表里选）。
 3. 点 **“归档并收录”**。文件会移到 `Manager_Files`，并生成缩略图。
 
-完成。🎉 现在可以删掉下载的 `html-manager-v1.5.0` 文件夹和 zip 文件了。
+完成。🎉 现在可以删掉下载的 `html-manager-v1.6.0` 文件夹和 zip 文件了。
 
 ---
 
 ## 把资料库放到移动硬盘
 
-1. 插上硬盘，在访达里把整个资料库（`Manager.html`、`Manager_Files`、`.thumbs`）拖到硬盘上，例如 `/Volumes/我的硬盘/`。
+1. 插上硬盘，在访达里把整个资料库（`Manager_Files`，以及隐藏的 `.manager` 和 `.thumbs`；按 `⌘ ⇧ .` 显示隐藏文件夹）拖到硬盘上，例如 `/Volumes/我的硬盘/`。
+   忘了拷 `.manager`？Manager 会从 `Manager_Files` 里的文件重建索引。
 2. 在 Manager 侧边栏底部点文件夹按钮 **“资料库位置”**。
 3. **资料库** 填硬盘上的文件夹，例如 `/Volumes/我的硬盘`。**收件文件夹** 留空（就是“下载”）。
    不知道路径？在访达里选中那个文件夹，按 `⌥ ⌘ C` 就能复制路径。
@@ -79,12 +80,17 @@ Microsoft Edge、Brave、Arc、Vivaldi 也可以用，步骤相同。
 
 资料库和资料库位置设置都会保留。
 
+**从 1.5 或更早的版本升级：** 1.6 第一次打开时，会把索引从 `Manager.html` 搬进隐藏的 `.manager/index.json`，
+并把旧文件改名为 `Manager-旧索引.html`（不会删除；确认一切正常后可以自己扔掉）。
+请先更新本机助手（第 2 步）再刷新插件：旧的本机助手读不了新索引。
+
 ## 遇到问题？
 
 | 你看到的情况 | 怎么办 |
 |---|---|
 | 页面显示 **“本机助手未连接”** | 重新做第 2 步。然后确认 `chrome://extensions` 里 Manager 卡片上显示的 ID 是 `jpencbldoocakpdbgolffgemckpimnph`。 |
 | 页面显示 **“本机助手需要更新”** | 用新版本的文件夹重新做第 2 步，再在 `chrome://extensions` 点刷新。 |
+| 页面显示 **“无法读取 Manager 索引”** | 点 **“重建索引…”**。资料和它们的信息都在 HTML 文件里，不会丢；原来的文件会保留。 |
 | 页面显示 **“无法访问资料文件夹”** | 打开 **“系统设置”→“隐私与安全性”→“文件和文件夹”**，找到 **Manager 本机助手**，打开 **“下载”文件夹**（和 **“可移除的宗卷”**）开关，然后点 **“重试”**。 |
 | 页面显示 **“资料库暂时无法访问”** | 资料库所在的硬盘没插上，或文件夹被改名了。插上硬盘点“重试”，或在“资料库位置”里改成正确的文件夹。 |
 | 卡片没有缩略图，或打不开文件 | 在 `chrome://extensions` 的 Manager **“详情”** 里打开 **“允许访问文件网址”**。 |

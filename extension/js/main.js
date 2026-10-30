@@ -64,12 +64,22 @@ async function start() {
   await load();
 }
 
+// Helpers before 1.6 read the old Manager.html and would offer to start an empty library. / 1.6 之前的助手读旧 Manager.html，会提示新建空资料库。
+const NEEDS_HELPER = '1.6.0';
+const olderThan = (a, b) => {
+  const [x, y] = [a, b].map(v => String(v).split('.').map(n => parseInt(n, 10) || 0));
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  return false;
+};
+
 async function load({ quiet = false } = {}) {
   if (!quiet) showStatus('loading');
   try {
     state.config = await host.config();
+    if (olderThan(state.config.version || '0', NEEDS_HELPER)) throw new HostError(`helper ${state.config.version}`, { code: 'old_helper' });
     $('#helperLabel').title = t('helper.where', state.config.library);
-    const rows = await host.list();
+    const { items: rows, notice } = await host.list();
+    if (notice) toast(t(`notice.${notice.event}`, notice), { sticky: true, action: { label: t('ok'), run: () => {} } });
     state.all = prepare(rows);
     state.byPath = new Map(state.all.map(x => [x.path, x]));
     for (const path of state.selected) if (!state.byPath.has(path)) state.selected.delete(path);
@@ -127,13 +137,15 @@ function showStatus(kind, detail = '', path = '') {
       <ol>${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
       <div class="status-actions">
         ${kind === 'noindex' ? `<button type="button" class="button primary" id="createIndex">${esc(t('status.create'))}</button>` : ''}
-        <button type="button" class="button${kind === 'noindex' ? '' : ' primary'}" id="retry">${esc(t('retry'))}</button>
+        ${kind === 'index' ? `<button type="button" class="button primary" id="statusRebuild">${esc(t('rebuild.button'))}</button>` : ''}
+        <button type="button" class="button${kind === 'noindex' || kind === 'index' ? '' : ' primary'}" id="retry">${esc(t('retry'))}</button>
         ${['library', 'inbox', 'index', 'permission', 'noindex'].includes(kind) ? `<button type="button" class="button" id="statusSettings">${icon('folder')}<span>${esc(t('status.openSettings'))}</span></button>` : ''}
       </div>
       ${detail ? `<details><summary>${esc(t('status.details'))}</summary><code>${esc(detail)}</code></details>` : ''}
     </div>`;
   $('#retry').onclick = () => load();
   if ($('#statusSettings')) $('#statusSettings').onclick = openSettings;
+  if ($('#statusRebuild')) $('#statusRebuild').onclick = rebuildIndex;
   if ($('#createIndex')) {
     $('#createIndex').onclick = async () => {
       try {
@@ -147,6 +159,26 @@ function showStatus(kind, detail = '', path = '') {
 }
 
 // ---------- folders / 资料库位置 ----------
+
+/** Rebuilds the index from the files in the saved library, after asking. / 确认后从已保存资料库里的文件重建索引。 */
+async function rebuildIndex() {
+  if ($('#settingsDialog').open) $('#settingsDialog').close();
+  const ok = await confirmSheet({
+    title: t('rebuild.title'), body: t('rebuild.body', state.config?.library || '~/Downloads'),
+    confirm: t('rebuild.confirm'), symbol: 'refresh',
+  });
+  if (!ok) return;
+  toast(t('rebuild.working'), { sticky: true });
+  try {
+    const result = await host.rebuildIndex();
+    state.pending = null;
+    await load();
+    toast(t('rebuild.done', result.rebuilt || {}), { sticky: true, action: { label: t('ok'), run: () => {} } });
+  } catch (e) {
+    toast(e.outdated ? t('status.outdated.title') : t('toast.error', e.message), { error: true });
+  }
+}
+$('#rebuildIndex').addEventListener('click', rebuildIndex);
 
 async function openSettings() {
   const dialog = $('#settingsDialog');

@@ -7,10 +7,10 @@
 <key>CFBundleIdentifier</key><string>com.songxiaofeng.managerhtml.helper</string>
 <key>CFBundleName</key><string>Manager Helper</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.5.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleShortVersionString</key><string>1.6.0</string>
+<key>CFBundleVersion</key><string>3</string>
 <key>LSBackgroundOnly</key><true/>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
-<key>NSDownloadsFolderUsageDescription</key><string>While the Manager page is open, the helper reads your library (Downloads by default: Manager.html and Manager_Files) and looks for new HTML files. When you import, it writes search details and a thumbnail, moves the file into the library and updates Manager.html. It moves files to the Trash only after you confirm.</string>
-<key>NSRemovableVolumesUsageDescription</key><string>If you keep your Manager library or new-files folder on an external disk, the helper reads Manager.html, Manager_Files and thumbnails there, and updates them when you import or confirm a deletion.</string>
+<key>NSDownloadsFolderUsageDescription</key><string>While the Manager page is open, the helper reads your library (Downloads by default: Manager_Files and the hidden .manager index) and looks for new HTML files. When you import, it writes search details and a thumbnail, moves the file into the library and updates the index. It moves files to the Trash only after you confirm.</string>
+<key>NSRemovableVolumesUsageDescription</key><string>If you keep your Manager library or new-files folder on an external disk, the helper reads Manager_Files, the .manager index and thumbnails there, and updates them when you import or confirm a deletion.</string>
 </dict></plist>

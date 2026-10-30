@@ -186,9 +186,10 @@ export const menuOpen = () => !!openMenu;
 // ---------- Confirmation sheet / 确认对话框 ----------
 
 /** Asks before something that cannot be undone here. Resolves true when confirmed. / 执行无法在此撤销的操作前确认。 */
-export function confirmSheet({ title, body, lines = [], confirm, danger = false }) {
+export function confirmSheet({ title, body, lines = [], confirm, danger = false, symbol = 'trash' }) {
   return new Promise(resolve => {
     const dialog = document.querySelector('#confirmDialog');
+    dialog.querySelector('.confirm-icon').innerHTML = icon(symbol);
     dialog.querySelector('h3').textContent = title;
     dialog.querySelector('p').textContent = body;
     const list = dialog.querySelector('ul');
@@ -197,6 +198,7 @@ export function confirmSheet({ title, body, lines = [], confirm, danger = false 
     const ok = dialog.querySelector('[data-confirm]');
     ok.textContent = confirm;
     ok.classList.toggle('danger', danger);
+    dialog.classList.toggle('danger', danger);
     dialog.onclose = () => resolve(dialog.returnValue === 'ok');
     dialog.returnValue = '';
     dialog.showModal();

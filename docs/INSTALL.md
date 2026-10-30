@@ -12,16 +12,16 @@ Microsoft Edge, Brave, Arc and Vivaldi work too, with the same steps.
 ## Step 1: Download
 
 1. Open the [latest release page](https://github.com/songxiaofeng1981/html-manager/releases/latest).
-2. Under **Assets**, click **`html-manager-v1.5.0.zip`** (the version number may be higher).
+2. Under **Assets**, click **`html-manager-v1.6.0.zip`** (the version number may be higher).
    Don't click "Source code": that needs developer tools.
-3. Open your Downloads folder and double-click the zip file. A folder named `html-manager-v1.5.0` appears.
+3. Open your Downloads folder and double-click the zip file. A folder named `html-manager-v1.6.0` appears.
 
 ## Step 2: Run the installer
 
 1. Open Terminal: press `⌘ Space`, type `Terminal`, press Return.
 2. In the Terminal window, type `bash` followed by **one space**. Don't press Return yet.
-3. Drag **`install.sh`** from the `html-manager-v1.5.0` folder into the Terminal window.
-   The line now looks like `bash /Users/yourname/Downloads/html-manager-v1.5.0/install.sh`.
+3. Drag **`install.sh`** from the `html-manager-v1.6.0` folder into the Terminal window.
+   The line now looks like `bash /Users/yourname/Downloads/html-manager-v1.6.0/install.sh`.
 4. Press Return.
 
 After a few seconds you'll see **"Done!"** and Chrome's extensions page opens.
@@ -47,7 +47,7 @@ The installer opened `chrome://extensions` for you. If not, type `chrome://exten
 ## Step 4: Create your library
 
 1. Click the **Manager** icon in the toolbar.
-2. The first time, it shows **Start your library**. Click **Create Library**. Manager creates `Manager.html` and a `Manager_Files` folder in Downloads and changes nothing else.
+2. The first time, it shows **Start your library**. Click **Create Library**. Manager creates a `Manager_Files` folder and a hidden `.manager` folder for the index in Downloads, and changes nothing else.
    - Want the library somewhere else, such as an external disk? Click **Choose Folders…** first, enter the folder, then create it.
 3. If macOS asks whether *"Manager Helper" may access files in your Downloads folder*, click **Allow**.
 
@@ -57,13 +57,14 @@ The installer opened `chrome://extensions` for you. If not, type `chrome://exten
 2. Tick the files you want. For each, check the **category** and **2–4 tags** (click "+ Tag" to pick from the vocabulary).
 3. Click **Archive and Import**. The files move into `Manager_Files` and get thumbnails.
 
-Done. 🎉 You can now delete the downloaded `html-manager-v1.5.0` folder and the zip file.
+Done. 🎉 You can now delete the downloaded `html-manager-v1.6.0` folder and the zip file.
 
 ---
 
 ## Keeping the library on an external disk
 
-1. Connect the disk and, in Finder, drag the whole library (`Manager.html`, `Manager_Files`, `.thumbs`) onto it, for example into `/Volumes/MyDisk/`.
+1. Connect the disk and, in Finder, drag the whole library (`Manager_Files`, and the hidden `.manager` and `.thumbs`; press `⌘ ⇧ .` to show hidden folders) onto it, for example into `/Volumes/MyDisk/`.
+   Forgot `.manager`? Manager rebuilds the index from the files in `Manager_Files`.
 2. In Manager, click the folder button at the bottom of the sidebar (**Folders**).
 3. Set **Library** to the folder on the disk, for example `/Volumes/MyDisk`. Leave **New files** empty (that means Downloads).
    Not sure of the path? Select the folder in Finder and press `⌥ ⌘ C` to copy it.
@@ -80,12 +81,17 @@ When the disk isn't connected, Manager shows "The library folder is not availabl
 
 Your library and folder settings are kept.
 
+**From 1.5 or earlier:** the first time 1.6 opens, it moves the index from `Manager.html` into the hidden `.manager/index.json`
+and renames the old file `Manager-旧索引.html` (nothing is deleted; once everything looks right you may throw it away).
+Update the helper (step 2) before reloading the extension: an older helper can't read the new index.
+
 ## Trouble?
 
 | What you see | What to do |
 |---|---|
 | The page says **The Mac helper is not connected** | Do Step 2 again. Then check that the ID on the Manager card in `chrome://extensions` is `jpencbldoocakpdbgolffgemckpimnph`. |
 | The page says **The Mac helper needs updating** | Do Step 2 again with the new version's folder, then click reload in `chrome://extensions`. |
+| The page says **Cannot read the Manager index** | Click **Rebuild Index…**. Your documents and their details are in the HTML files, so nothing is lost; the old file is kept. |
 | The page says **No access to the folders** | Open **System Settings → Privacy & Security → Files and Folders**, find **Manager Helper**, turn on **Downloads Folder** (and **Removable Volumes**), then click **Retry**. |
 | The page says **The library folder is not available** | The disk holding the library isn't connected, or the folder was renamed. Connect it and click Retry, or fix the path in Folders. |
 | Cards have no thumbnails, or files won't open | In `chrome://extensions`, open Manager's **Details** and turn on **Allow access to file URLs**. |

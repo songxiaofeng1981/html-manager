@@ -3,14 +3,16 @@ import ImageIO
 import UniformTypeIdentifiers
 
 private let extensionID = "jpencbldoocakpdbgolffgemckpimnph"
-private let helperVersion = "1.5.0"
+private let helperVersion = "1.6.0"
 private let fm = FileManager.default
 private let args = CommandLine.arguments
 
 // Two folders, both ~/Downloads unless the user sets them in Manager's Settings:
-//   library — Manager.html (the index), Manager_Files/ (archived HTML) and .thumbs/ (thumbnails)
+//   library — .manager/index.json (the index, with backups), Manager_Files/ (archived HTML) and .thumbs/ (thumbnails)
 //   inbox   — where new HTML files arrive; importing moves them into library/Manager_Files.
-// 两个文件夹，未设置时都是 ~/Downloads：资料库（Manager.html、Manager_Files/、.thumbs/）和收件文件夹（新 HTML 所在处，收录时移入资料库）。
+// 两个文件夹，未设置时都是 ~/Downloads：资料库（.manager/index.json 索引及备份、Manager_Files/、.thumbs/）和收件文件夹（新 HTML 所在处，收录时移入资料库）。
+// Each HTML file's doc-meta is the record of truth; the index is a cache that can be rebuilt from the files.
+// 每个 HTML 里的 doc-meta 才是正本；索引只是可以从文件重建的缓存。
 
 /** Real path of an existing folder, or nil. realpath keeps /private, unlike standardizing. / 已存在文件夹的真实路径。 */
 private func existingFolder(_ path: String) -> URL? {
@@ -47,7 +49,13 @@ private let settingsURL: URL? = {
 
 private var library = defaultLibrary
 private var inbox = defaultInbox
-private var managerURL: URL { library.appendingPathComponent("Manager.html") }
+private var indexFolder: URL { library.appendingPathComponent(".manager", isDirectory: true) }
+private var indexURL: URL { indexFolder.appendingPathComponent("index.json") }
+private var backupsFolder: URL { indexFolder.appendingPathComponent("backups", isDirectory: true) }
+private var legacyIndexURL: URL { library.appendingPathComponent("Manager.html") }
+private let legacyRenamedStem = "Manager-旧索引"
+private let indexFormatVersion = 1
+private let keptBackups = 10
 private var managedRoot: URL { library.appendingPathComponent("Manager_Files", isDirectory: true) }
 private var thumbsRoot: URL { library.appendingPathComponent(".thumbs", isDirectory: true) }
 private let attachmentFolder = "_附件"
@@ -77,7 +85,7 @@ private let controlledTags: [String: [String]] = [
 ]
 
 private enum HostError: Error, LocalizedError {
-    case invalidPath, notManaged, missingFile, unsupportedOperation, managerFormat, indexMissing, permission, oversized, emptySelection, invalidMetadata, thumbnailFailure
+    case invalidPath, notManaged, missingFile, unsupportedOperation, managerFormat, legacyFormat, newerIndex, indexMissing, indexExists, permission, oversized, emptySelection, invalidMetadata, thumbnailFailure
     case libraryMissing(String), inboxMissing(String), invalidSettings(String)
     var errorDescription: String? {
         switch self {
@@ -85,8 +93,11 @@ private enum HostError: Error, LocalizedError {
         case .notManaged: return "This file is not a managed HTML file / 这个文件不在可管理的 HTML 范围内"
         case .missingFile: return "The file no longer exists; scan again / 文件已不存在，请重新扫描"
         case .unsupportedOperation: return "Unsupported operation / 不支持的操作"
-        case .managerFormat: return "Cannot safely read or update Manager.html / 无法安全读取或更新 Manager.html 清单"
-        case .indexMissing: return "There is no Manager.html in the library / 资料库中找不到 Manager.html 清单"
+        case .managerFormat: return "Cannot safely read or update the Manager index / 无法安全读取或更新 Manager 索引"
+        case .legacyFormat: return "The old Manager.html in the library is not an index Manager can read; nothing was changed / 资料库里旧的 Manager.html 不是 Manager 能读取的索引，没有改动任何文件"
+        case .newerIndex: return "The index was written by a newer Manager; update Manager / 索引由更新版本的 Manager 写入，请更新 Manager"
+        case .indexMissing: return "There is no Manager library in this folder yet / 这个文件夹里还没有 Manager 资料库"
+        case .indexExists: return "This folder already has a Manager library / 这个文件夹里已经有 Manager 资料库"
         case .permission: return "No access to the library, the new-files folder or the Trash; check file permissions / 无法访问资料库、收件文件夹或 macOS 废纸篓，请检查文件访问权限"
         case .oversized: return "The index is too large for one Chrome message / 清单数据超过 Chrome 消息限制"
         case .emptySelection: return "No HTML files selected to import / 没有选择可收录的 HTML 文件"
@@ -102,8 +113,9 @@ private enum HostError: Error, LocalizedError {
         switch self {
         case .libraryMissing: return "library_missing"
         case .inboxMissing: return "inbox_missing"
-        case .managerFormat: return "index"
+        case .managerFormat, .legacyFormat, .newerIndex: return "index"
         case .indexMissing: return "index_missing"
+        case .indexExists: return "index_exists"
         case .permission: return "permission"
         case .invalidSettings: return "settings"
         case .unsupportedOperation: return "unknown_op"
@@ -162,9 +174,10 @@ private func setConfig(id: String, libraryPath: String, inboxPath: String) throw
     let (previousLibrary, previousInbox) = (library, inbox)
     library = newLibrary
     inbox = newInbox
-    // A folder without Manager.html is fine: the page then offers to start a new library there.
-    // 没有 Manager.html 的文件夹也可以：页面会提示在那里新建资料库。
-    do { _ = try readManager() } catch HostError.indexMissing {} catch {
+    // A folder without an index is fine: the page then offers to start a new library there, or the index is
+    // rebuilt from Manager_Files. Only an old Manager.html that is not an index is refused: it is probably the wrong folder.
+    // 没有索引的文件夹也可以：页面会提示新建资料库，或从 Manager_Files 重建索引。只拒绝不是索引的旧 Manager.html，多半是选错了文件夹。
+    if !fm.fileExists(atPath: indexURL.path), fm.fileExists(atPath: legacyIndexURL.path), (try? readLegacyIndex()) == nil {
         (library, inbox) = (previousLibrary, previousInbox)
         throw HostError.invalidSettings("Manager.html in this folder cannot be read or is not an index / 这个文件夹里的 Manager.html 无法读取或格式不对：\(newLibrary.path)")
     }
@@ -196,21 +209,68 @@ private func send(_ value: [String: Any]) throws {
 }
 
 
-private func readManager() throws -> (String, NSRange, [[String: Any]]) {
-    let source: String
-    do { source = try String(contentsOf: managerURL, encoding: .utf8) } catch {
-        if !fm.fileExists(atPath: managerURL.path) { throw HostError.indexMissing }
+// ---------- index / 索引 ----------
+//
+// <library>/.manager/index.json is {"version": 1, "files": [row…]}. Before every write the previous file is copied to
+// .manager/backups/ and the newest 10 copies are kept. A missing or damaged index is rebuilt from the doc-meta of the
+// HTML in Manager_Files, starting from the newest readable backup so rows without a file of their own (Markdown) come back.
+// An index from before 1.6 (Manager.html with `const files = [...]`) is moved in once and renamed Manager-旧索引.html.
+// 索引是 <资料库>/.manager/index.json。每次写入前把旧文件复制到 .manager/backups/，只保留最近 10 份。
+// 索引丢了或坏了，就从 Manager_Files 里各 HTML 的 doc-meta 重建，并先取最近一份能读的备份，让没有自己文件的行（Markdown）也回来。
+// 1.6 之前的索引（含 `const files = [...]` 的 Manager.html）会搬进来一次，然后改名为 Manager-旧索引.html。
+
+/// What happened to the index during this request, so the page can mention it once. / 本次请求中索引发生的事，页面提示一次。
+private var indexNotice: [String: Any]?
+
+private func timestamp() -> String {
+    let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = .current
+    formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
+    return formatter.string(from: Date())
+}
+
+private func readIndexFile(_ url: URL) throws -> Data {
+    do { return try Data(contentsOf: url) } catch {
+        if !fm.fileExists(atPath: url.path) { throw HostError.indexMissing }
         if (error as NSError).code == NSFileReadNoPermissionError { throw HostError.permission }
         throw HostError.managerFormat
     }
-    let pattern = #"(?s)const files = (\[.*?\]);\s*const HTML_CONTROLLED"#
-    guard let regex = try? NSRegularExpression(pattern: pattern), let match = regex.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)),
-          let jsonRange = Range(match.range(at: 1), in: source), let data = String(source[jsonRange]).data(using: .utf8),
-          let records = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { throw HostError.managerFormat }
-    return (source, match.range(at: 1), records)
 }
 
-private func writeManager(_ source: String, range: NSRange, records: [[String: Any]]) throws {
+private func decodeIndex(_ data: Data) throws -> [[String: Any]] {
+    guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let rows = object["files"] as? [[String: Any]] else { throw HostError.managerFormat }
+    if let version = object["version"] as? Int, version > indexFormatVersion { throw HostError.newerIndex }
+    return rows
+}
+
+/** Rows of an index from before 1.6. / 1.6 之前的索引（Manager.html）里的行。 */
+private func readLegacyIndex() throws -> [[String: Any]] {
+    let data = try readIndexFile(legacyIndexURL)
+    let pattern = #"(?s)const files = (\[.*?\]);\s*const HTML_CONTROLLED"#
+    guard let source = String(data: data, encoding: .utf8), let regex = try? NSRegularExpression(pattern: pattern),
+          let match = regex.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)),
+          let jsonRange = Range(match.range(at: 1), in: source), let json = String(source[jsonRange]).data(using: .utf8),
+          let rows = try? JSONSerialization.jsonObject(with: json) as? [[String: Any]] else { throw HostError.legacyFormat }
+    return rows
+}
+
+/** Backups, newest first. / 备份，最新的在前。 */
+private func backupFiles() -> [URL] {
+    let urls = (try? fm.contentsOfDirectory(at: backupsFolder, includingPropertiesForKeys: nil)) ?? []
+    return urls.filter { $0.lastPathComponent.hasPrefix("index-") && $0.pathExtension == "json" }
+        .sorted { $0.lastPathComponent > $1.lastPathComponent }
+}
+
+private func newestBackupRows() -> (name: String, rows: [[String: Any]])? {
+    for url in backupFiles() {
+        if let data = try? Data(contentsOf: url), let rows = try? decodeIndex(data) { return (url.lastPathComponent, rows) }
+    }
+    return nil
+}
+
+/** Backs up the current index, then writes the new one atomically. Returns the rows as written. / 先备份当前索引，再原子写入新索引。 */
+@discardableResult
+private func writeIndex(_ records: [[String: Any]]) throws -> [[String: Any]] {
     // `href` is the source of truth; `path` is rewritten for the current library so the index follows a moved library.
     // 以 href 为准；写回时按当前资料库重写 path，资料库换位置后索引随之更新。
     let normalized = records.map { row -> [String: Any] in
@@ -219,9 +279,146 @@ private func writeManager(_ source: String, range: NSRange, records: [[String: A
         copy["path"] = library.appendingPathComponent(href).path
         return copy
     }
-    let json = try JSONSerialization.data(withJSONObject: normalized, options: [.fragmentsAllowed, .sortedKeys])
-    guard let replacement = String(data: json, encoding: .utf8), let range = Range(range, in: source), let data = source.replacingCharacters(in: range, with: replacement).data(using: .utf8) else { throw HostError.managerFormat }
-    do { try data.write(to: managerURL, options: .atomic) } catch { throw HostError.permission }
+    let data = try JSONSerialization.data(withJSONObject: ["version": indexFormatVersion, "files": normalized],
+                                          options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+    do {
+        try fm.createDirectory(at: backupsFolder, withIntermediateDirectories: true)
+        if fm.fileExists(atPath: indexURL.path) {
+            let stamp = timestamp()
+            var backup = backupsFolder.appendingPathComponent("index-\(stamp).json")
+            var n = 2
+            while fm.fileExists(atPath: backup.path) { backup = backupsFolder.appendingPathComponent("index-\(stamp)-\(n).json"); n += 1 }
+            try fm.copyItem(at: indexURL, to: backup)
+            for old in backupFiles().dropFirst(keptBackups) { try? fm.removeItem(at: old) }
+        }
+        try data.write(to: indexURL, options: .atomic)
+    } catch { throw HostError.permission }
+    return normalized
+}
+
+/** HTML in Manager_Files, without _附件, hidden files and symbolic links. / Manager_Files 里的 HTML。 */
+private func managedHTMLFiles() -> [URL] {
+    var urls: [URL] = []
+    guard let enumerator = fm.enumerator(at: managedRoot, includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
+    while let url = enumerator.nextObject() as? URL {
+        let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey])
+        if values?.isSymbolicLink == true || (values?.isDirectory == true && url.lastPathComponent == attachmentFolder) {
+            if values?.isDirectory == true { enumerator.skipDescendants() }
+            continue
+        }
+        if values?.isRegularFile == true && url.pathExtension.lowercased() == "html" { urls.append(url) }
+    }
+    return urls.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+}
+
+/** True when there is something to rebuild from, so a missing index must never look like an empty library. / 有可重建的内容。 */
+private func hasLibraryContent() -> Bool { !managedHTMLFiles().isEmpty || !backupFiles().isEmpty }
+
+private struct Rebuilt {
+    var rows: [[String: Any]] = []
+    var fromFiles = 0, fromBackup = 0, other = 0, dropped = 0
+    var base: String?
+    var summary: [String: Any] {
+        ["html": fromFiles + fromBackup, "fromFiles": fromFiles, "fromBackup": fromBackup, "markdown": other, "dropped": dropped, "backup": base ?? ""]
+    }
+}
+
+/**
+ * Rows for every HTML in Manager_Files: from its doc-meta, or from the earlier row when the file has none.
+ * Starts from `base` (the current index) or else the newest readable backup, which keeps their order and their
+ * Markdown rows; rows whose file is gone are left out.
+ * 为 Manager_Files 里的每个 HTML 生成一行：有 doc-meta 就用它，没有就用之前的那一行。以 `base`（当前索引）或最近一份能读的备份为底，
+ * 保留原来的顺序和 Markdown 行；文件已经不在的行去掉。
+ */
+private func rebuildRows(base: [[String: Any]]?) -> Rebuilt {
+    var result = Rebuilt()
+    var earlier = base
+    if earlier != nil { result.base = "index" } else if let backup = newestBackupRows() { earlier = backup.rows; result.base = backup.name }
+    let files = managedHTMLFiles()
+    var byHref: [String: URL] = [:]
+    for url in files { byHref[relativePath(url)] = url }
+    var seen = Set<String>()
+    for row in earlier ?? [] {
+        let href = row["href"] as? String ?? ""
+        guard !seen.contains(href) else { continue }
+        if row["fileType"] as? String != "HTML" {
+            seen.insert(href); result.rows.append(row); result.other += 1
+        } else if let url = byHref[href] {
+            seen.insert(href)
+            let record = makeRecord(url)
+            if record["metadataManaged"] as? Bool == true { result.rows.append(record); result.fromFiles += 1 }
+            else { var kept = row; kept["path"] = url.path; result.rows.append(kept); result.fromBackup += 1 }
+        } else if !href.hasPrefix("Manager_Files/"), (try? safeURL(relative: href)) != nil {
+            // A row from an older version for a file still in the inbox. / 旧版本留下的、文件仍在收件文件夹的行。
+            seen.insert(href); result.rows.append(row); result.fromBackup += 1
+        } else {
+            result.dropped += 1
+        }
+    }
+    // Every file in Manager_Files got there by being imported, so all of them belong in the index. / Manager_Files 里的文件都是收录进来的。
+    for url in files where !seen.contains(relativePath(url)) {
+        result.rows.append(makeRecord(url))
+        result.fromFiles += 1
+    }
+    return result
+}
+
+/** Renames the old Manager.html so it is not mistaken for the index; never deletes it. / 把旧 Manager.html 改名，绝不删除。 */
+@discardableResult
+private func retireLegacyIndex() -> String? {
+    var target = library.appendingPathComponent("\(legacyRenamedStem).html")
+    var n = 2
+    while fm.fileExists(atPath: target.path) { target = library.appendingPathComponent("\(legacyRenamedStem) \(n).html"); n += 1 }
+    do { try fm.moveItem(at: legacyIndexURL, to: target) } catch { return nil }
+    return target.lastPathComponent
+}
+
+/**
+ * The index rows. Moves an old Manager.html in, and rebuilds a missing or damaged index when the library has
+ * documents or backups. Only a library with neither reports index_missing.
+ * 读取索引。会搬入旧的 Manager.html；资料库里有资料或备份时，索引丢了或坏了就自动重建。只有两者都没有才报 index_missing。
+ */
+private func readIndex() throws -> [[String: Any]] {
+    if fm.fileExists(atPath: indexURL.path) {
+        let data = try readIndexFile(indexURL)
+        do { return try decodeIndex(data) } catch HostError.newerIndex { throw HostError.newerIndex } catch {}
+        // Damaged: keep it aside for inspection, then rebuild. / 损坏：先另存一份，再重建。
+        let aside = indexFolder.appendingPathComponent("index-损坏-\(timestamp()).json")
+        do { try fm.moveItem(at: indexURL, to: aside) } catch { throw HostError.permission }
+        let rebuilt = rebuildRows(base: nil)
+        let rows = try writeIndex(rebuilt.rows)
+        indexNotice = rebuilt.summary.merging(["event": "rebuilt", "reason": "damaged", "aside": aside.lastPathComponent]) { $1 }
+        return rows
+    }
+    if fm.fileExists(atPath: legacyIndexURL.path) {
+        let legacy = try readLegacyIndex()
+        let rows = try writeIndex(legacy)
+        let markdown = legacy.filter { $0["fileType"] as? String != "HTML" }.count
+        indexNotice = ["event": "migrated", "html": legacy.count - markdown, "markdown": markdown, "renamed": retireLegacyIndex() ?? ""]
+        return rows
+    }
+    guard hasLibraryContent() else { throw HostError.indexMissing }
+    let rebuilt = rebuildRows(base: nil)
+    let rows = try writeIndex(rebuilt.rows)
+    indexNotice = rebuilt.summary.merging(["event": "rebuilt", "reason": "missing"]) { $1 }
+    return rows
+}
+
+/** Rebuilds the index on request, starting from the current one when it can be read. / 按请求重建索引，当前索引能读时以它为底。 */
+private func rebuildIndex(id: String) throws {
+    var base: [[String: Any]]?
+    var fromLegacy = false
+    if fm.fileExists(atPath: indexURL.path) {
+        do { base = try decodeIndex(readIndexFile(indexURL)) } catch HostError.newerIndex { throw HostError.newerIndex } catch HostError.permission { throw HostError.permission } catch {}
+    } else if let legacy = try? readLegacyIndex() {
+        base = legacy
+        fromLegacy = true
+    }
+    let rebuilt = rebuildRows(base: base)
+    do { try fm.createDirectory(at: managedRoot, withIntermediateDirectories: true) } catch { throw HostError.permission }
+    try writeIndex(rebuilt.rows)
+    if fromLegacy { retireLegacyIndex() }
+    try send(["id": id, "type": "result", "ok": true, "rebuilt": rebuilt.summary, "index": indexURL.path])
 }
 
 /**
@@ -526,7 +723,7 @@ private func makeRecord(_ url: URL) -> [String: Any] {
 
 
 private func list(id: String) throws {
-    let (_, _, records) = try readManager()
+    let records = try readIndex()
     let items: [[String: Any]] = records.compactMap { row in
         guard row["fileType"] as? String == "HTML", let href = row["href"] as? String, let candidate = try? safeURL(relative: href) else { return nil }
         var output = row
@@ -535,27 +732,22 @@ private func list(id: String) throws {
         output["rootPath"] = library.path
         return output
     }
-    try send(["id": id, "type": "items", "items": items])
+    var reply: [String: Any] = ["id": id, "type": "items", "items": items]
+    if let notice = indexNotice { reply["notice"] = notice }
+    try send(reply)
 }
 
 private func discoverFiles(existing: [[String: Any]]) throws -> [[String: Any]] {
     let known = Set(existing.compactMap { $0["href"] as? String })
     var urls: [URL] = []
     let rootFiles = (try? fm.contentsOfDirectory(at: inbox, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles])) ?? []
-    for url in rootFiles where url.pathExtension.lowercased() == "html" && url.lastPathComponent.lowercased() != "manager.html" {
+    // The old index renamed by 1.6 sits in the library root, which is also the inbox by default. / 改名后的旧索引在资料库根目录，默认也是收件文件夹。
+    for url in rootFiles where url.pathExtension.lowercased() == "html" && url.lastPathComponent.lowercased() != "manager.html"
+        && !(sharedFolder && url.lastPathComponent.hasPrefix(legacyRenamedStem)) {
         if (try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]).isRegularFile) == true,
            (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true { urls.append(url) }
     }
-    if let enumerator = fm.enumerator(at: managedRoot, includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
-        while let url = enumerator.nextObject() as? URL {
-            let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey])
-            if values?.isSymbolicLink == true || (values?.isDirectory == true && url.lastPathComponent == attachmentFolder) {
-                if values?.isDirectory == true { enumerator.skipDescendants() }
-                continue
-            }
-            if values?.isRegularFile == true && url.pathExtension.lowercased() == "html" { urls.append(url) }
-        }
-    }
+    urls += managedHTMLFiles()
     return urls.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
         .filter { !known.contains(relativePath($0)) }
         .map { url in
@@ -571,13 +763,13 @@ private func discoverFiles(existing: [[String: Any]]) throws -> [[String: Any]] 
 }
 
 private func discover(id: String) throws {
-    let (_, _, records) = try readManager()
+    let records = try readIndex()
     try send(["id": id, "type": "candidates", "items": discoverFiles(existing: records), "inbox": inbox.path, "library": library.path])
 }
 
 private func importFiles(id: String, paths: [String], metadataByPath: [String: [String: Any]]) throws {
     guard !paths.isEmpty else { throw HostError.emptySelection }
-    let (source, range, records) = try readManager()
+    let records = try readIndex()
     let candidates = try discoverFiles(existing: records)
     let allowed = Set(candidates.compactMap { $0["href"] as? String })
     let selected = Array(Set(paths)).filter { allowed.contains($0) }
@@ -642,7 +834,7 @@ private func importFiles(id: String, paths: [String], metadataByPath: [String: [
             additions.append(makeRecord(destination))
         }
         guard !additions.isEmpty else { throw HostError.missingFile }
-        try writeManager(source, range: range, records: records + additions)
+        try writeIndex(records + additions)
     } catch {
         for move in movedFiles.reversed() { try? fm.moveItem(at: move.destination, to: move.source) }
         for (url, data) in originalHTML { try? data.write(to: url, options: .atomic) }
@@ -655,57 +847,35 @@ private func importFiles(id: String, paths: [String], metadataByPath: [String: [
 }
 
 private func deleteHTML(id: String, relative: String) throws {
-    let (source, range, records) = try readManager()
+    let records = try readIndex()
     guard records.contains(where: { ($0["href"] as? String) == relative && $0["fileType"] as? String == "HTML" }),
           let candidate = try? safeURL(relative: relative) else { throw HostError.notManaged }
     do { var trashedURL: NSURL?; try fm.trashItem(at: candidate, resultingItemURL: &trashedURL) } catch { throw HostError.permission }
     let updated = records.filter { ($0["href"] as? String) != relative }
-    try writeManager(source, range: range, records: updated)
+    try writeIndex(updated)
     try send(["id": id, "type": "result", "ok": true, "deleted": relative, "destination": "废纸篓", "remaining": updated.count])
 }
 
-// An empty index for a new library. It also works as a plain page that lists the documents.
-// 新资料库的空索引；直接打开它也是一份资料清单。
-private let indexTemplate = #"""
-<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Manager</title>
-<style>body{max-width:760px;margin:40px auto;padding:0 16px;color:#1d1d1f;font:15px/1.5 -apple-system,system-ui,sans-serif}a{color:#007aff;text-decoration:none}li{margin:6px 0}small{color:#86868b}</style>
-</head>
-<body>
-<h1>Manager</h1>
-<p><small>这个文件是 Manager 扩展的资料索引，请不要手动修改。This file is the index of the Manager extension; please do not edit it by hand.</small></p>
-<ul id="list"></ul>
-<script>
-const files = [];
-const HTML_CONTROLLED = [];
-const escapeText = s => String(s || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
-document.getElementById('list').innerHTML = files.filter(f => f.href).map(f => `<li><a href="${encodeURI(f.href)}">${escapeText(f.title || f.filename)}</a> <small>${escapeText(f.category)} ${escapeText(f.created)}</small></li>`).join('');
-</script>
-</body>
-</html>
-"""#
-
+/** Starts a library: .manager/index.json and Manager_Files. Never empties a library that has documents. / 新建资料库，绝不清空已有资料。 */
 private func createIndex(id: String) throws {
-    guard !fm.fileExists(atPath: managerURL.path) else { throw HostError.invalidSettings("The library already has a Manager.html / 资料库里已经有 Manager.html") }
-    do {
-        try fm.createDirectory(at: managedRoot, withIntermediateDirectories: true)
-        try Data(indexTemplate.utf8).write(to: managerURL, options: .withoutOverwriting)
-    } catch { throw HostError.permission }
-    try send(["id": id, "type": "result", "ok": true, "created": managerURL.path])
+    guard !fm.fileExists(atPath: indexURL.path), !fm.fileExists(atPath: legacyIndexURL.path) else { throw HostError.indexExists }
+    // Documents already in Manager_Files are indexed, not left waiting for import. / Manager_Files 里已有的资料直接进索引，不会变成待收录。
+    let rows = hasLibraryContent() ? rebuildRows(base: nil).rows : []
+    do { try fm.createDirectory(at: managedRoot, withIntermediateDirectories: true) } catch { throw HostError.permission }
+    try writeIndex(rows)
+    try send(["id": id, "type": "result", "ok": true, "created": indexURL.path, "rows": rows.count])
 }
 
 private func handle(_ request: [String: Any]) {
     let id = request["id"] as? String ?? ""
+    indexNotice = nil
     do {
         switch request["op"] as? String {
         case "config": try configReply(id: id)
         case "setConfig":
             try setConfig(id: id, libraryPath: request["library"] as? String ?? "", inboxPath: request["inbox"] as? String ?? "")
         case "createIndex": try applySettings(); try createIndex(id: id)
+        case "rebuildIndex": try applySettings(); try rebuildIndex(id: id)
         case "list": try applySettings(); try list(id: id)
         case "discover": try applySettings(); try discover(id: id)
         case "import":
@@ -733,7 +903,23 @@ if args.contains("--selftest") {
         try applySettings()
         print("Library / 资料库: \(library.path)")
         print("New files / 收件文件夹: \(inbox.path)")
-        let (_, _, records) = try readManager()
+        // Read only: an old or missing index is described here and moved in or rebuilt when the page opens.
+        // 只读：旧索引或缺失的索引在这里只做说明，打开管理页时才搬入或重建。
+        let records: [[String: Any]]
+        print("Index / 索引: \(indexURL.path)")
+        if fm.fileExists(atPath: indexURL.path) {
+            do { records = try decodeIndex(readIndexFile(indexURL)) } catch {
+                print("Problem / 问题: the index is damaged; it will be rebuilt when you open Manager / 索引已损坏，打开 Manager 时会自动重建")
+                records = newestBackupRows()?.rows ?? []
+            }
+        } else if fm.fileExists(atPath: legacyIndexURL.path) {
+            records = try readLegacyIndex()
+            print("Old Manager.html found; it will be moved into .manager/index.json when you open Manager / 发现旧的 Manager.html，打开 Manager 时会搬进 .manager/index.json")
+        } else if hasLibraryContent() {
+            print("No index yet; it will be rebuilt from Manager_Files when you open Manager / 还没有索引，打开 Manager 时会从 Manager_Files 重建")
+            records = rebuildRows(base: nil).rows
+        } else { throw HostError.indexMissing }
+        print("Backups / 备份: \(backupFiles().count)")
         let html = records.filter { $0["fileType"] as? String == "HTML" }
         let found = html.filter { ($0["href"] as? String).flatMap { try? safeURL(relative: $0) } != nil }
         print("Indexed HTML found / 已收录且找得到的 HTML: \(found.count) / \(html.count)")

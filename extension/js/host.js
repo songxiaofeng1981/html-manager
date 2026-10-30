@@ -1,9 +1,9 @@
 // Client for the Mac helper (本机助手), over Chrome Native Messaging.
 // Every request carries a unique id; the helper answers with one message with the same id:
-//   config / setConfig → config, list → items, discover → candidates, import / delete → result,
-//   createIndex → result, or error (with a `code`: library_missing, inbox_missing, index, index_missing,
-//   permission, settings, unknown_op, error).
-// The helper reads two folders, both ~/Downloads unless set in Settings: the library (Manager.html,
+//   config / setConfig → config, list → items (with a `notice` when the index was just moved in or rebuilt),
+//   discover → candidates, import / delete / createIndex / rebuildIndex → result, or error (with a `code`:
+//   library_missing, inbox_missing, index, index_missing, index_exists, permission, settings, unknown_op, error).
+// The helper reads two folders, both ~/Downloads unless set in Settings: the library (.manager/index.json,
 // Manager_Files, .thumbs) and the inbox (where new HTML arrives).
 // 与本机助手通信（Chrome Native Messaging）。每个请求带唯一 id，助手用同一个 id 回复一条消息。
 
@@ -50,13 +50,13 @@ export class HostError extends Error {
   get permissionDenied() {
     return this.code === 'permission';
   }
-  /** True when Manager.html is missing or not in the expected format. / Manager.html 缺失或格式不对。 */
+  /** True when the index cannot be read and was not rebuilt (an old Manager.html that is not an index, or a newer index). / 索引无法读取且没有自动重建。 */
   get badIndex() {
     return this.code === 'index';
   }
-  /** True for a helper from before 1.5, which has no settings. / 1.5 之前的助手，没有设置功能。 */
+  /** True for a helper older than this page (it does not know an operation, or reports an older version). / 助手比页面旧。 */
   get outdated() {
-    return this.code === 'unknown_op' || (!this.code && /不支持的操作/.test(this.message));
+    return this.code === 'unknown_op' || this.code === 'old_helper' || (!this.code && /不支持的操作/.test(this.message));
   }
 }
 
@@ -82,7 +82,9 @@ export const host = {
   config: () => request('config'),
   setConfig: (library, inbox) => request('setConfig', { library, inbox }),
   createIndex: () => request('createIndex'),
-  list: () => request('list').then(r => r.items || []),
+  rebuildIndex: () => request('rebuildIndex', {}, 120000),
+  // { items, notice? } / 资料行，以及索引刚搬入或重建时的说明
+  list: () => request('list').then(r => ({ items: r.items || [], notice: r.notice || null })),
   discover: () => request('discover', {}, 60000).then(r => r.items || []),
   // Each file is rendered for its thumbnail, so allow time per file. / 每个文件都要渲染缩略图，按文件数放宽时限。
   import: (paths, metadata) => request('import', { paths, metadata }, 60000 + 45000 * paths.length),

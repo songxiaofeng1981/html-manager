@@ -69,11 +69,14 @@ In short:
 
 | Place | What's there |
 |---|---|
-| **Library** (Downloads by default; can be changed) | `Manager.html` (the index), `Manager_Files/` (imported HTML and `_附件/` for linked files), `.thumbs/` (thumbnails) |
+| **Library** (Downloads by default; can be changed) | `Manager_Files/` (imported HTML and `_附件/` for linked files), `.manager/` (the index and its backups; hidden), `.thumbs/` (thumbnails) |
 | **New-files folder** (Downloads by default; can be changed) | HTML files that are not imported yet |
 | `~/Library/Application Support/Manager HTML/` | The helper and your folder settings |
 
 Each document's category, tags and summary are stored inside the file itself, in `<script type="application/json" id="doc-meta">`, so they travel with it.
+The index in `.manager/index.json` only makes the page fast: it is backed up before every change (the last 10 are kept), and
+if it is lost or damaged Manager rebuilds it from the files. **Folders → Rebuild Index…** does it by hand.
+Nothing is kept in Chrome, so removing the extension or moving to another browser or Mac loses nothing.
 
 ## Privacy and safety
 
@@ -81,7 +84,7 @@ Each document's category, tags and summary are stored inside the file itself, in
 - **Only HTML in the library and the new-files folder.** The helper refuses other paths, hidden files and symbolic links.
 - **Thumbnails come from macOS Quick Look**, like Finder's previews: the page's scripts do not run and nothing is loaded from the web.
 - **Nothing is deleted outright.** Move to Trash uses the macOS Trash, and you are always asked first.
-- **What it changes:** only when you click Archive and Import does it write search details into the chosen HTML files, move them and update `Manager.html`.
+- **What it changes:** only when you click Archive and Import does it write search details into the chosen HTML files, move them and update the index.
 - **Nothing runs in the background.** Chrome starts the helper when the page opens; it quits when you close the tab.
 
 ## Current limits
@@ -103,7 +106,7 @@ Chrome tab (the extension page: HTML, CSS, JavaScript modules, no build step)
 Manager Helper (Swift; starts and stops with the tab)
    │  read index · find new files · import (details, thumbnail, archive) · Trash · folder settings
    ▼
-Library (Manager.html, Manager_Files, .thumbs)  ←  new-files folder (new HTML)
+Library (Manager_Files, .manager/index.json, .thumbs)  ←  new-files folder (new HTML)
 ```
 
 A Chrome extension can't read or write your files by itself, and macOS protects Downloads and external disks with their own permissions.

@@ -694,7 +694,8 @@ body.has-status .content { display: none; }
 .spacer { flex: 1; }
 .sheet .sheet-intro { margin: -6px 0 14px; color: var(--text-2); text-align: center; line-height: 1.5; }
 .confirm-sheet { width: min(420px, 92vw); text-align: center; }
-.confirm-icon .icon { width: 36px; height: 36px; color: var(--danger); stroke-width: 1.5; }
+.confirm-icon .icon { width: 36px; height: 36px; color: var(--accent); stroke-width: 1.5; }
+.confirm-sheet.danger .confirm-icon .icon { color: var(--danger); }
 .confirm-sheet h3 { margin: 6px 0 8px; }
 .confirm-sheet p { margin: 0; color: var(--text-2); line-height: 1.5; }
 .confirm-sheet ul {
@@ -802,6 +803,11 @@ body.has-status .content { display: none; }
 }
 .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .field small { color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
+.index-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.index-row > div { display: grid; gap: 5px; flex: 1; }
+.index-row span { font-weight: 600; }
+.index-row small { color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
+.index-row .button { flex: none; }
 .field-error { margin: 0 0 8px; color: var(--danger); line-height: 1.45; overflow-wrap: anywhere; }
 .imp-attach { margin: -4px 0 8px; color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
 .status-card .status-actions { flex-wrap: wrap; }

@@ -8,13 +8,16 @@ Manager 是一个 Chrome 插件（Manifest V3、原生 ES 模块、无构建）�
 ## Must not change / 不能改
 
 - `key` in `extension/manifest.json` (extension ID `jpencbldoocakpdbgolffgemckpimnph`), host name `com.songxiaofeng.managerhtml`,
-  helper bundle ID `com.songxiaofeng.managerhtml.helper`, the settings file location and the `Manager.html` index format.
-  插件 `key`、宿主名、助手 Bundle ID、设置文件位置和 `Manager.html` 索引格式。
+  helper bundle ID `com.songxiaofeng.managerhtml.helper`, the settings file location and the index format
+  (`.manager/index.json`, `{version, files}`; a new format needs a new `version` and a way to move old libraries in).
+  插件 `key`、宿主名、助手 Bundle ID、设置文件位置和索引格式（`.manager/index.json`；改格式要升 `version` 并能搬入旧资料库）。
 
 ## Rules / 规则
 
 - Helper stdout carries only length-prefixed protocol JSON; diagnostics go to stderr. / 助手的 stdout 只能输出协议消息。
 - Deleting only through the Trash and only after confirmation in the page. / 只能在页面确认后移到废纸篓。
+- Each file's `doc-meta` is the record of truth; the index must stay rebuildable from the files. A missing index in a library
+  with documents is rebuilt, never offered as a new empty library. / 正本是文件里的 doc-meta，索引必须能从文件重建；有资料的资料库丢了索引要重建，绝不当成新的空资料库。
 - A configured folder that is missing is an error; never fall back to Downloads. / 设置的文件夹不存在时报错，绝不退回 Downloads。
 - No `style=""` in HTML strings (CSP); colors via `el.style`. / HTML 字符串里不写 `style=""`。
 - Interface text in both languages (`extension/js/i18n.js`); vocabulary in both `extension/js/vocab.js` and `helper/ManagerHost.swift`.

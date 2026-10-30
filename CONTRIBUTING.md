@@ -68,6 +68,8 @@ and deletes them afterwards. Each run moves a few sample files to the Trash.
 - Select (circle, ⌘-click, ⇧-click, ⌘A), copy list, Move to Trash with confirmation. / 选择、复制清单、确认后移到废纸篓。
 - Import with the same folder and with separate folders (linked files copied to `_附件`). / 同一文件夹和分开的文件夹下收录（附件复制到 `_附件`）。
 - Folders: invalid paths refused, a missing library shows its page, Create Library on an empty folder. / 资料库位置：无效路径被拒绝、资料库不见时的说明页、空文件夹新建资料库。
+- Index: an old `Manager.html` is moved in with a notice; delete or damage `.manager/index.json` and reload (rebuilt, Markdown rows back); Folders → Rebuild Index….
+  索引：旧 `Manager.html` 自动搬入并提示；删掉或弄坏 `.manager/index.json` 后刷新（自动重建、Markdown 行恢复）；资料库位置 → 重建索引…。
 - No Content Security Policy errors in the console. / Console 里没有内容安全策略报错。
 
 ## Releasing / 发布
